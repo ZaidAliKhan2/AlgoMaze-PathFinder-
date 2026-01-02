@@ -1,0 +1,613 @@
+﻿@page "/visualizer"
+    @layout Layout.EmptyLayout
+    @inject IJSRuntime JS
+
+<div class="bg-background-dark text-gray-200 font-display h-screen w-screen overflow-hidden flex selection:bg-primary selection:text-white"
+     @onmouseup="HandleMouseUp">
+
+    <aside class="w-[320px] flex-shrink-0 bg-sidebar-dark border-r border-[#333] flex flex-col h-full overflow-y-auto z-20">
+        <div class="px-6 pt-8 pb-4 relative">
+            <h1 class="text-3xl font-bold tracking-tight text-white flex items-center gap-2">
+                <a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                    <span class="text-primary text-4xl leading-none">&gt;_</span> ALGOMAZE
+                </a>
+            </h1>
+            <p class="text-xs text-gray-500 mt-1 uppercase tracking-widest pl-1">Pathfinding Visualizer</p>
+
+            <button @onclick="ToggleSound" class="absolute top-9 right-6 p-2 rounded-full hover:bg-[#333] text-gray-400 hover:text-white transition-all active:scale-95" title="@(IsSoundOn ? "Mute" : "Unmute")">
+                <span class="material-symbols-outlined text-[24px]">
+                    @(IsSoundOn ? "volume_up" : "volume_off")
+                </span>
+            </button>
+        </div>
+
+        <div class="flex-1 flex flex-col gap-8 px-6 pb-8">
+            <section class="flex flex-col gap-4">
+                <div class="flex items-center gap-2 text-gray-400 border-b border-[#333] pb-2">
+                    <span class="material-symbols-outlined text-[20px]">grid_view</span>
+                    <h2 class="text-sm font-bold tracking-wider uppercase">Maze Controls</h2>
+                </div>
+                <div class="space-y-3">
+                    <label class="block text-sm font-medium text-gray-300">Pattern</label>
+                    <div class="relative">
+                        <select @bind="SelectedPattern" class="w-full bg-[#1e1e1e] border border-[#333] text-gray-200 text-sm rounded-lg focus:ring-primary focus:border-primary block p-2.5 pr-10 appearance-none bg-none cursor-pointer hover:border-gray-500 transition-colors">
+                            <option value="backtracker">Recursive Backtracker</option>
+                            <option value="recursive">Recursive Division</option>
+                            <option value="spiral">Spiral Pattern</option>
+                            <option value="random">Random Noise</option>
+                            <option value="empty">Empty Grid</option>
+                        </select>
+                        <span class="material-symbols-outlined absolute right-3 top-2.5 pointer-events-none text-gray-500">expand_more</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 pt-2">
+                        <button @onclick="GenerateMaze" class="flex flex-col items-center justify-center p-3 rounded-lg border border-[#333] hover:border-primary hover:bg-primary/10 transition-all group">
+                            <span class="material-symbols-outlined text-primary mb-1 group-hover:scale-110 transition-transform">refresh</span>
+                            <span class="text-xs font-bold">Generate</span>
+                        </button>
+                        <button @onclick="ClearBoard" class="flex flex-col items-center justify-center p-3 rounded-lg border border-[#333] hover:border-red-500 hover:bg-red-500/10 transition-all group">
+                            <span class="material-symbols-outlined text-red-500 mb-1 group-hover:scale-110 transition-transform">delete</span>
+                            <span class="text-xs font-bold">Clear</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section class="flex flex-col gap-4">
+                <div class="flex items-center gap-2 text-gray-400 border-b border-[#333] pb-2">
+                    <span class="material-symbols-outlined text-[20px]">account_tree</span>
+                    <h2 class="text-sm font-bold tracking-wider uppercase">Algorithm</h2>
+                </div>
+                <div class="space-y-3">
+                    <label class="relative flex items-start gap-3 p-3 rounded-lg border border-[#333] bg-[#1e1e1e] cursor-pointer hover:border-primary/50 transition-colors">
+                        <input type="radio" name="algo"
+                               checked="@(SelectedAlgorithm == "BFS")"
+                               @onchange='() => SelectedAlgorithm = "BFS"'
+                               class="mt-1 w-4 h-4 text-primary bg-transparent border-gray-500 focus:ring-primary focus:ring-offset-gray-900" />
+                        <div>
+                            <span class="block text-sm font-bold text-white">Breadth-First Search</span>
+                            <span class="block text-xs text-gray-500 mt-1">Guarantees shortest path.</span>
+                            <span class="inline-block mt-2 text-[10px] bg-[#333] px-1.5 py-0.5 rounded text-gray-300">O(V + E)</span>
+                        </div>
+                    </label>
+
+                    <label class="relative flex items-start gap-3 p-3 rounded-lg border border-[#333] bg-[#1e1e1e] cursor-pointer hover:border-primary/50 transition-colors">
+                        <input type="radio" name="algo"
+                               checked="@(SelectedAlgorithm == "DFS")"
+                               @onchange='() => SelectedAlgorithm = "DFS"'
+                               class="mt-1 w-4 h-4 text-primary bg-transparent border-gray-500 focus:ring-primary focus:ring-offset-gray-900" />
+                        <div>
+                            <span class="block text-sm font-bold text-white">Depth-First Search</span>
+                            <span class="block text-xs text-gray-500 mt-1">Not guaranteed shortest path.</span>
+                            <span class="inline-block mt-2 text-[10px] bg-[#333] px-1.5 py-0.5 rounded text-gray-300">O(V + E)</span>
+                        </div>
+                    </label>
+                </div>
+            </section>
+
+            <section class="flex flex-col gap-4">
+                <div class="flex items-center justify-between text-gray-400 border-b border-[#333] pb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[20px]">speed</span>
+                        <h2 class="text-sm font-bold tracking-wider uppercase">Speed</h2>
+                    </div>
+                    <span class="text-xs text-primary font-mono">@Delay ms</span>
+                </div>
+                <div class="px-1">
+                    <input type="range" min="1" max="100" @bind="Delay" @bind:event="oninput"
+                           class="range-slider w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
+                    <div class="flex justify-between text-[10px] text-gray-500 mt-2 font-mono uppercase">
+                        <span>Fast (1ms)</span>
+                        <span>Slow (100ms)</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="bg-[#1a1a1b] p-6 border-t border-[#333] flex flex-col gap-4">
+            <button @onclick="RunAlgorithm" class="w-full bg-primary hover:bg-green-600 text-white font-bold py-4 px-6 rounded-lg shadow-[0_0_15px_rgba(41,168,71,0.3)] transition-all active:scale-[0.98] flex items-center justify-center gap-2 text-lg tracking-wide group">
+                <span class="material-symbols-outlined group-hover:animate-pulse">play_arrow</span>
+                VISUALIZE
+            </button>
+
+            <div class="grid grid-cols-1 gap-2 bg-[#131313] p-4 rounded-lg border border-[#333] font-mono text-xs">
+                <div class="flex justify-between items-center border-b border-[#2a2a2a] pb-2 mb-1">
+                    <span class="text-gray-500">STATUS</span>
+                    <span class="text-primary font-bold">@StatusText</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-500">VISITED</span>
+                    <span class="text-white">@VisitedCount</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-500">PATH LEN</span>
+                    <span class="text-white">@PathLength</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col relative h-full bg-[#1e1e1e]">
+        <div class="h-16 border-b border-[#333] bg-[#222] flex items-center justify-center px-4 shadow-md z-10">
+            <div class="flex flex-wrap justify-center gap-6 sm:gap-10">
+                <div class="flex items-center gap-2"><div class="w-5 h-5 rounded bg-grid-start shadow-[0_0_8px_rgba(40,167,69,0.4)]"></div><span class="text-sm text-gray-300 font-medium">Start</span></div>
+                <div class="flex items-center gap-2"><div class="w-5 h-5 rounded bg-grid-end shadow-[0_0_8px_rgba(220,53,69,0.4)]"></div><span class="text-sm text-gray-300 font-medium">Target</span></div>
+                <div class="flex items-center gap-2"><div class="w-5 h-5 rounded bg-grid-visited border border-white/10"></div><span class="text-sm text-gray-300 font-medium">Visited</span></div>
+                <div class="flex items-center gap-2"><div class="w-5 h-5 rounded bg-grid-path border border-white/10 shadow-[0_0_8px_rgba(255,193,7,0.4)]"></div><span class="text-sm text-gray-300 font-medium">Path</span></div>
+                <div class="flex items-center gap-2"><div class="w-5 h-5 rounded bg-grid-wall border border-gray-600"></div><span class="text-sm text-gray-300 font-medium">Wall</span></div>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-hidden p-4 sm:p-10 flex items-center justify-center bg-[#181818] bg-[radial-gradient(#2a2a2a_1px,transparent_1px)] [background-size:16px_16px]">
+            <div class="bg-[#1e1e1e] p-1 rounded-md border border-[#333] shadow-2xl overflow-hidden relative select-none">
+                <div class="grid gap-[1px] bg-[#2d2d2d] border border-[#2d2d2d]"
+                     style="grid-template-columns: repeat(@Cols, minmax(24px, 1fr));">
+                    @if (Grid != null)
+                    {
+                        @for (int r = 0; r < Rows; r++)
+                        {
+                            @for (int c = 0; c < Cols; c++)
+                            {
+                                var node = Grid[r, c];
+                                <div class="@GetNodeClass(node) w-6 h-6 sm:w-8 sm:h-8 cursor-pointer transition-colors duration-75 flex items-center justify-center"
+                                     @onmousedown="() => HandleMouseDown(node)"
+                                     @onmouseenter="() => HandleMouseEnter(node)">
+                                    @if (node.IsStart)
+                                    {
+                                        <span class="material-symbols-outlined text-white text-[18px] font-bold">chevron_right</span>
+                                    }
+                                    else if (node.IsTarget)
+                                    {
+                                        <span class="material-symbols-outlined text-white text-[16px] font-bold">flag</span>
+                                    }
+                                </div>
+                            }
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="absolute bottom-4 right-4 text-[10px] text-gray-500 font-mono flex items-center gap-4 pointer-events-none">
+            <span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">drag_indicator</span> Drag to move Start/End</span>
+            <span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">draw</span> Click & Drag to draw Walls</span>
+        </div>
+    </main>
+</div>
+
+@code {
+    // --- 1. CONFIGURATION ---
+    int Rows = 16;
+    int Cols = 25;
+    int Delay = 10;
+    Node[,] Grid;
+
+    // Logic Flags
+    bool IsMouseDown = false;
+    bool IsRunning = false;
+    bool IsDraggingStart = false;
+    bool IsDraggingEnd = false;
+
+    // Sound Flag
+    bool IsSoundOn = true;
+
+    // Status & Selection
+    int VisitedCount = 0;
+    int PathLength = 0;
+    string StatusText = "READY";
+    string SelectedPattern = "backtracker";
+    string SelectedAlgorithm = "BFS";
+
+    // --- 2. INITIALIZATION ---
+    protected override void OnInitialized()
+    {
+        InitializeGrid();
+    }
+
+    void InitializeGrid()
+    {
+        Grid = new Node[Rows, Cols];
+        for (int r = 0; r < Rows; r++)
+        {
+            for (int c = 0; c < Cols; c++)
+            {
+                Grid[r, c] = new Node { Row = r, Col = c };
+            }
+        }
+        Grid[Rows / 2, 4].IsStart = true;
+        Grid[Rows / 2, Cols - 5].IsTarget = true;
+    }
+
+    // Toggle Sound
+    void ToggleSound()
+    {
+        IsSoundOn = !IsSoundOn;
+    }
+
+    // --- 3. MOUSE HANDLERS ---
+    void HandleMouseDown(Node node)
+    {
+        if (IsRunning) return;
+        IsMouseDown = true;
+
+        if (node.IsStart) IsDraggingStart = true;
+        else if (node.IsTarget) IsDraggingEnd = true;
+        else
+        {
+            node.IsWall = !node.IsWall;
+            if (node.IsWall)
+            {
+                PlaySoundFast("sfx-createWall");
+            }
+        }
+    }
+
+    void HandleMouseEnter(Node node)
+    {
+        if (!IsMouseDown || IsRunning) return;
+
+        if (IsDraggingStart)
+        {
+            if (!node.IsTarget && !node.IsWall)
+            {
+                foreach (var n in Grid) n.IsStart = false;
+                node.IsStart = true;
+            }
+        }
+        else if (IsDraggingEnd)
+        {
+            if (!node.IsStart && !node.IsWall)
+            {
+                foreach (var n in Grid) n.IsTarget = false;
+                node.IsTarget = true;
+            }
+        }
+        else if (!node.IsStart && !node.IsTarget)
+        {
+            if (!node.IsWall)
+            {
+                node.IsWall = true;
+                PlaySoundFast("sfx-createWall");
+            }
+        }
+    }
+
+    void HandleMouseUp() { IsMouseDown = false; IsDraggingStart = false; IsDraggingEnd = false; }
+
+    // --- 4. BOARD ACTIONS ---
+    void ClearBoard()
+    {
+        if (IsRunning) return;
+        InitializeGrid();
+        VisitedCount = 0; PathLength = 0; StatusText = "READY";
+    }
+
+    // --- 5. MAZE GENERATION LOGIC ---
+    async Task GenerateMaze()
+    {
+        if (IsRunning) return;
+        switch (SelectedPattern)
+        {
+            case "backtracker": await GenerateBacktracker(); break;
+            case "recursive": await GenerateRecursiveDivision(); break;
+            case "spiral": await GenerateSpiral(); break;
+            case "random": await GenerateRandomNoise(); break;
+            default: ClearBoard(); break;
+        }
+        if (SelectedPattern != "empty")
+        {
+            PlaySoundFast("sfx-mazeGen");
+        }
+    }
+
+    // 5a. RECURSIVE BACKTRACKER
+    async Task GenerateBacktracker()
+    {
+        ClearBoard();
+        foreach (var n in Grid) if (!n.IsStart && !n.IsTarget) n.IsWall = true;
+
+        var stack = new Stack<Node>();
+        var rng = new Random();
+        int r = 1; int c = 1;
+        Grid[r, c].IsWall = false;
+        stack.Push(Grid[r, c]);
+
+        while (stack.Count > 0)
+        {
+            var current = stack.Peek();
+            var neighbors = new List<Node>();
+            int[] dr = { -2, 2, 0, 0 }; int[] dc = { 0, 0, -2, 2 };
+
+            for (int i = 0; i < 4; i++)
+            {
+                int nr = current.Row + dr[i];
+                int nc = current.Col + dc[i];
+                if (nr > 0 && nr < Rows - 1 && nc > 0 && nc < Cols - 1 && Grid[nr, nc].IsWall)
+                    neighbors.Add(Grid[nr, nc]);
+            }
+
+            if (neighbors.Count > 0)
+            {
+                var next = neighbors[rng.Next(neighbors.Count)];
+                Grid[(current.Row + next.Row) / 2, (current.Col + next.Col) / 2].IsWall = false;
+                next.IsWall = false;
+                stack.Push(next);
+                if (neighbors.Count % 5 == 0) StateHasChanged();
+            }
+            else
+            {
+                stack.Pop();
+            }
+        }
+        EnsureConnectivity();
+        StateHasChanged();
+    }
+
+    // 5b. RECURSIVE DIVISION
+    async Task GenerateRecursiveDivision()
+    {
+        ClearBoard();
+        for (int i = 0; i < Rows; i++) { Grid[i, 0].IsWall = true; Grid[i, Cols - 1].IsWall = true; }
+        for (int i = 0; i < Cols; i++) { Grid[0, i].IsWall = true; Grid[Rows - 1, i].IsWall = true; }
+        await Divide(1, Rows - 2, 1, Cols - 2, false);
+        EnsureConnectivity();
+        StateHasChanged();
+    }
+
+    async Task Divide(int rStart, int rEnd, int cStart, int cEnd, bool orientation)
+    {
+        if (rEnd - rStart < 2 || cEnd - cStart < 2) return;
+        var rand = new Random();
+        bool horizontal = orientation;
+
+        if (horizontal)
+        {
+            int wallRow = rand.Next(rStart, rEnd + 1);
+            if (wallRow % 2 != 0) wallRow++;
+            if (wallRow > rEnd) wallRow = rEnd - 1;
+            int holeCol = rand.Next(cStart, cEnd + 1);
+            if (holeCol % 2 == 0) holeCol++;
+
+            for (int c = cStart; c <= cEnd; c++) if (c != holeCol) Grid[wallRow, c].IsWall = true;
+            StateHasChanged(); await Task.Delay(10);
+            await Divide(rStart, wallRow - 1, cStart, cEnd, !horizontal);
+            await Divide(wallRow + 1, rEnd, cStart, cEnd, !horizontal);
+        }
+        else
+        {
+            int wallCol = rand.Next(cStart, cEnd + 1);
+            if (wallCol % 2 != 0) wallCol++;
+            if (wallCol > cEnd) wallCol = cEnd - 1;
+            int holeRow = rand.Next(rStart, rEnd + 1);
+            if (holeRow % 2 == 0) holeRow++;
+
+            for (int r = rStart; r <= rEnd; r++) if (r != holeRow) Grid[r, wallCol].IsWall = true;
+            StateHasChanged(); await Task.Delay(10);
+            await Divide(rStart, rEnd, cStart, wallCol - 1, !horizontal);
+            await Divide(rStart, rEnd, wallCol + 1, cEnd, !horizontal);
+        }
+    }
+
+    // 5c. SPIRAL
+    async Task GenerateSpiral()
+    {
+        ClearBoard();
+        int top = 1, bottom = Rows - 2, left = 1, right = Cols - 2;
+        int dir = 0;
+        while (top <= bottom && left <= right)
+        {
+            if (dir == 0) { for (int i = left; i <= right; i++) { Grid[top, i].IsWall = true; StateHasChanged(); await Task.Delay(5); } top += 2; }
+            else if (dir == 1) { for (int i = top - 2; i <= bottom; i++) { Grid[i, right].IsWall = true; StateHasChanged(); await Task.Delay(5); } right -= 2; }
+            else if (dir == 2) { for (int i = right + 2; i >= left; i--) { Grid[bottom, i].IsWall = true; StateHasChanged(); await Task.Delay(5); } bottom -= 2; }
+            else if (dir == 3) { for (int i = bottom + 2; i >= top; i--) { Grid[i, left].IsWall = true; StateHasChanged(); await Task.Delay(5); } left += 2; }
+            dir = (dir + 1) % 4;
+        }
+    }
+
+    // 5d. RANDOM NOISE
+    async Task GenerateRandomNoise()
+    {
+        ClearBoard();
+        var rand = new Random();
+        foreach (var node in Grid) if (!node.IsStart && !node.IsTarget && rand.Next(100) < 30) node.IsWall = true;
+        StateHasChanged();
+    }
+
+    void EnsureConnectivity()
+    {
+        var start = Grid.Cast<Node>().First(n => n.IsStart);
+        var end = Grid.Cast<Node>().First(n => n.IsTarget);
+        start.IsWall = false; end.IsWall = false;
+
+        int[] dr = { -1, 1, 0, 0 }; int[] dc = { 0, 0, -1, 1 };
+        foreach (var n in new[] { start, end })
+        {
+            bool open = false;
+            for (int i = 0; i < 4; i++)
+            {
+                int r = n.Row + dr[i]; int c = n.Col + dc[i];
+                if (r >= 0 && r < Rows && c >= 0 && c < Cols && !Grid[r, c].IsWall) open = true;
+            }
+            if (!open && n.Row > 1) Grid[n.Row - 1, n.Col].IsWall = false;
+        }
+    }
+
+    // --- 6. ALGORITHM EXECUTION (BFS & DFS) ---
+    async Task RunAlgorithm()
+    {
+        if (IsRunning) return;
+        IsRunning = true;
+        StatusText = "RUNNING";
+        VisitedCount = 0; PathLength = 0;
+        ResetPathData();
+
+        var startNode = Grid.Cast<Node>().FirstOrDefault(n => n.IsStart);
+        var targetNode = Grid.Cast<Node>().FirstOrDefault(n => n.IsTarget);
+
+        if (startNode == null || targetNode == null) { IsRunning = false; return; }
+
+        bool found = false;
+        if (SelectedAlgorithm == "BFS") found = await RunBFS(startNode, targetNode);
+        else found = await RunDFS(startNode, targetNode);
+
+        StateHasChanged();
+        if (found) { StatusText = "PATH FOUND"; await ReconstructPath(targetNode); }
+        else { StatusText = "NO PATH"; }
+        IsRunning = false;
+    }
+
+    // 6a. BFS
+    async Task<bool> RunBFS(Node startNode, Node targetNode)
+    {
+        var queue = new Queue<Node>();
+        var visited = new HashSet<Node>();
+        queue.Enqueue(startNode);
+        visited.Add(startNode);
+        int steps = 0;
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            steps++;
+            if (current == targetNode) return true;
+
+            if (!current.IsStart)
+            {
+                current.IsVisited = true;
+                VisitedCount++;
+                await VisualizeStep(steps);
+            }
+
+            foreach (var neighbor in GetNeighbors(current))
+            {
+                if (!visited.Contains(neighbor) && !neighbor.IsWall)
+                {
+                    visited.Add(neighbor);
+                    neighbor.Parent = current;
+                    queue.Enqueue(neighbor);
+                }
+            }
+        }
+        return false;
+    }
+
+    // 6b. DFS
+    async Task<bool> RunDFS(Node startNode, Node targetNode)
+    {
+        var stack = new Stack<Node>();
+        var visited = new HashSet<Node>();
+        stack.Push(startNode);
+        visited.Add(startNode);
+        int steps = 0;
+
+        while (stack.Count > 0)
+        {
+            var current = stack.Pop();
+            steps++;
+            if (current == targetNode) return true;
+
+            if (!current.IsStart)
+            {
+                current.IsVisited = true;
+                VisitedCount++;
+                await VisualizeStep(steps);
+            }
+
+            foreach (var neighbor in GetNeighbors(current))
+            {
+                if (!visited.Contains(neighbor) && !neighbor.IsWall)
+                {
+                    visited.Add(neighbor);
+                    neighbor.Parent = current;
+                    stack.Push(neighbor);
+                }
+            }
+        }
+        return false;
+    }
+
+    // Visualization Helper
+    async Task VisualizeStep(int steps)
+    {
+        // Throttled Sound Logic
+        if (Delay <= 5)
+        {
+            if (steps % 10 == 0) PlaySoundFast("sfx-visit");
+        }
+        else if (Delay <= 20)
+        {
+            if (steps % 5 == 0) PlaySoundFast("sfx-visit");
+        }
+        else
+        {
+            PlaySoundFast("sfx-visit");
+        }
+
+        if (Delay <= 10) { if (steps % 10 == 0) { StateHasChanged(); await Task.Delay(1); } }
+        else { StateHasChanged(); await Task.Delay(Delay); }
+    }
+
+    async Task ReconstructPath(Node endNode)
+    {
+        var current = endNode.Parent;
+        while (current != null && !current.IsStart)
+        {
+            current.IsPath = true;
+            PathLength++;
+
+            // Fire-and-forget sound
+            PlaySoundFast("sfx-showPath");
+
+            StateHasChanged();
+            await Task.Delay(30);
+            current = current.Parent;
+        }
+        if (IsSoundOn) await JS.InvokeVoidAsync("stopAudio", "sfx-showPath");
+    }
+
+    // --- 7. HELPER METHODS ---
+
+    // 1. Fire-And-Forget Player (Use this for animations)
+    void PlaySoundFast(string elementId)
+    {
+        if (!IsSoundOn) return;
+        _ = JS.InvokeVoidAsync("playAudio", elementId);
+    }
+
+    void ResetPathData()
+    {
+        foreach (var node in Grid) { node.IsVisited = false; node.IsPath = false; node.Parent = null; }
+    }
+
+    List<Node> GetNeighbors(Node node)
+    {
+        var list = new List<Node>();
+        int[] dr = { -1, 1, 0, 0 }; int[] dc = { 0, 0, -1, 1 };
+        for (int i = 0; i < 4; i++)
+        {
+            int r = node.Row + dr[i]; int c = node.Col + dc[i];
+            if (r >= 0 && r < Rows && c >= 0 && c < Cols) list.Add(Grid[r, c]);
+        }
+        return list;
+    }
+
+    string GetNodeClass(Node node)
+    {
+        if (node.IsStart) return "bg-grid-start shadow-[0_0_10px_rgba(40,167,69,0.5)]";
+        if (node.IsTarget) return "bg-grid-end shadow-[0_0_10px_rgba(220,53,69,0.5)]";
+        if (node.IsWall) return "bg-grid-wall border-gray-600";
+        if (node.IsPath) return "bg-grid-path animate-pop";
+        if (node.IsVisited) return "bg-grid-visited animate-pop rounded-sm";
+        return "bg-background-dark hover:bg-[#333]";
+    }
+
+    public class Node
+    {
+        public int Row { get; set; }
+        public int Col { get; set; }
+        public bool IsStart { get; set; }
+        public bool IsTarget { get; set; }
+        public bool IsWall { get; set; }
+        public bool IsVisited { get; set; }
+        public bool IsPath { get; set; }
+        public Node Parent { get; set; }
+    }
+    }

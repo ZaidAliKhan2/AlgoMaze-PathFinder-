@@ -1,6 +1,0 @@
-C:\Users\Saif Ali Khan\source\repos\BlazorApp1\BlazorApp1\obj\Debug\net8.0\MazeGame.csproj.AssemblyReference.cache
-C:\Users\Saif Ali Khan\source\repos\BlazorApp1\BlazorApp1\obj\Debug\net8.0\MazeGame.GeneratedMSBuildEditorConfig.editorconfig
-C:\Users\Saif Ali Khan\source\repos\BlazorApp1\BlazorApp1\obj\Debug\net8.0\MazeGame.AssemblyInfoInputs.cache
-C:\Users\Saif Ali Khan\source\repos\BlazorApp1\BlazorApp1\obj\Debug\net8.0\MazeGame.AssemblyInfo.cs
-C:\Users\Saif Ali Khan\source\repos\BlazorApp1\BlazorApp1\obj\Debug\net8.0\MazeGame.csproj.CoreCompileInputs.cache
-C:\Users\Saif Ali Khan\source\repos\BlazorApp1\BlazorApp1\obj\Debug\net8.0\MazeGame.MvcApplicationPartsAssemblyInfo.cache
